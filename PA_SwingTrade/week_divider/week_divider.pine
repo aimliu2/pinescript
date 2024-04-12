@@ -21,7 +21,7 @@ chart_tf = timeframe.period
 this_ticker_id = syminfo.tickerid
 this_tz = syminfo.timezone
 
-indicator("Week session 04-2024", shorttitle= "WS. 04-2024", overlay=true,precision=PRECISION_LIMIT, max_lines_count=LINE_LIMIT)
+indicator("Week divider 04-2024", shorttitle= "WD. 04-2024", overlay=true,precision=PRECISION_LIMIT, max_lines_count=LINE_LIMIT)
 // -----------------------------------------------------------------------------
 //                                  1 inputs                                    
 // -----------------------------------------------------------------------------
