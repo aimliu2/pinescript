@@ -21,12 +21,15 @@ chart_tf = timeframe.period
 this_ticker_id = syminfo.tickerid
 this_tz = syminfo.timezone
 
+var divider_color = #2962ff // blue
+
 indicator("Week divider 04-2024", shorttitle= "WD. 04-2024", overlay=true,precision=PRECISION_LIMIT, max_lines_count=LINE_LIMIT)
 // -----------------------------------------------------------------------------
 //                                  1 inputs                                    
 // -----------------------------------------------------------------------------
-show_debug = input.bool(false,title="Show Debug Value")
+div_color = input.color(color.new(divider_color,90), title="divider color")
 
+show_debug = input.bool(false,title="Show Debug Value")
 // -----------------------------------------------------------------------------
 //                                 2 Functions                                  
 // -----------------------------------------------------------------------------
@@ -36,19 +39,19 @@ show_debug = input.bool(false,title="Show Debug Value")
 //                                3 Calculation                                 
 // -----------------------------------------------------------------------------
 // Sat = 7, Sun = 1
-is_starOfTheWeek = (dayofweek == dayofweek.monday or dayofweek == dayofweek.tuesday)
+is_starOfTheWeek = (dayofweek == dayofweek.monday or dayofweek == dayofweek.tuesday or dayofweek == dayofweek.wednesday)
 
 
 
 // -----------------------------------------------------------------------------
 //                             4 Color Conditions                               
 // -----------------------------------------------------------------------------
-is_enteringNewWeek = (is_starOfTheWeek and not is_starOfTheWeek[1]) ? color.orange : na
+is_enteringNewWeek = (is_starOfTheWeek and not is_starOfTheWeek[1]) ? div_color : na
 
 // -----------------------------------------------------------------------------
 //                                   5 plot                                     
 // -----------------------------------------------------------------------------
-bgcolor(is_enteringNewWeek)
+bgcolor(is_enteringNewWeek, title="New Week Color")
 
 // -----------------------------------------------------------------------------
 //                              6 Debug Section                                 
