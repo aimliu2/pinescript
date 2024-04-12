@@ -1,0 +1,2 @@
+# pinescript
+Tradingview awesome script
