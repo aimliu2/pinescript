@@ -1,0 +1,88 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TheAimLiu2
+// @version=5
+
+// Sections
+// 0 Constants
+// 1 Inputs
+// 2 Functions
+// 3 Calculation
+// 4 Color Conditions
+// 5 Plot
+// 6 Debug
+
+// -----------------------------------------------------------------------------
+//                                 0 Constant                                   
+// -----------------------------------------------------------------------------
+PRECISION_LIMIT = 6 // 6digits significant numbers
+LINE_LIMIT = 50
+
+chart_tf = timeframe.period
+this_ticker_id = syminfo.tickerid
+this_tz = syminfo.timezone
+
+var m_divider_color = #434651 // charcoal black
+var w_divider_color = #2962ff // blue
+
+month_div_assets = "BTCUSD, ETHUSD, US30, SPX500, NDQ100"
+month_div_tip = "Assets beeter view from month's perspective"
+
+indicator("Auto divider 04-2024", shorttitle= "AD. 04-2024", overlay=true,precision=PRECISION_LIMIT, max_lines_count=LINE_LIMIT)
+// -----------------------------------------------------------------------------
+//                                  1 inputs                                    
+// -----------------------------------------------------------------------------
+m_div_color = input.color(color.new(m_divider_color,90), title="Month color", inline='l1')
+w_div_color = input.color(color.new(w_divider_color,90), title="Week color", inline='l1')
+
+show_debug = input.bool(false,title="Show Debug Value")
+m_assets = input.text_area(month_div_assets, title="Monthly divided assets", tooltip=month_div_tip)
+// -----------------------------------------------------------------------------
+//                                 2 Functions                                  
+// -----------------------------------------------------------------------------
+get_ticker_name() =>
+    a = str.split(this_ticker_id, ":") 
+    [array.get(a, 0),array.get(a, 1)]
+
+get_auto_period_color() =>
+    is_startOfTheWeek = (dayofweek == dayofweek.monday or dayofweek == dayofweek.tuesday or dayofweek == dayofweek.wednesday)
+    is_startOfTheMonth = (dayofmonth == 1 or dayofmonth == 2 or dayofmonth == 3 or dayofmonth == 4)
+    [_, tickerName] = get_ticker_name()
+    is_mPersepective = str.contains(m_assets, tickerName)
+    // month condition
+    is_enteringNewMonth = (is_startOfTheMonth and not is_startOfTheMonth[1])
+    // week condition
+    is_enteringNewWeek = (is_startOfTheWeek and not is_startOfTheWeek[1])
+
+    // check if asset is better viewed from monthly perspective
+    if is_mPersepective
+        divider_bg_color = is_enteringNewMonth ? m_div_color : na
+        divider_bg_color
+    else
+        divider_bg_color = is_enteringNewWeek ? w_div_color : na
+        divider_bg_color
+
+// -----------------------------------------------------------------------------
+//                                3 Calculation                                 
+// -----------------------------------------------------------------------------
+
+
+
+
+// -----------------------------------------------------------------------------
+//                             4 Color Conditions                               
+// -----------------------------------------------------------------------------
+bg_color = get_auto_period_color()
+
+// -----------------------------------------------------------------------------
+//                                   5 plot                                     
+// -----------------------------------------------------------------------------
+bgcolor(bg_color, title="Period Color")
+
+// -----------------------------------------------------------------------------
+//                              6 Debug Section                                 
+// -----------------------------------------------------------------------------
+// display status On the chart's last bar
+if barstate.islast and show_debug
+    debug_msg = "debug val "+  str.tostring(dayofmonth)
+    myLabel = label.new(x=bar_index + 10, y=close, color=color.red, style=label.style_label_left, size=size.normal)
+    label.set_text(id=myLabel, text=debug_msg)
