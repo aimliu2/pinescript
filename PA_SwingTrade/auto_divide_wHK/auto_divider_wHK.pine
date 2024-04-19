@@ -1,0 +1,149 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TheAimLiu2
+// @version=5
+
+// Sections
+// 0 Constants
+// 1 Inputs
+// 2 Functions
+// 3 Calculation
+// 4 Color Conditions
+// 5 Plot
+// 6 Debug
+
+// -----------------------------------------------------------------------------
+//                                 0 Constant                                   
+// -----------------------------------------------------------------------------
+PRECISION_LIMIT = 6 // 6digits significant numbers
+LINE_LIMIT = 50
+
+chart_tf = timeframe.period
+this_ticker_id = syminfo.tickerid
+this_tz = syminfo.timezone
+
+// ------------------------------ divider color --------------------------------
+var m_divider_color = #434651 // charcoal black
+var w_divider_color = #2962ff // blue
+
+// ------------------------------ candle colors --------------------------------
+var gold_color =#b59410
+// var hikin_bear_color = #801922 // dark red
+
+var bullish_color = #f0eff4 // pearl white
+var bearish_color = m_divider_color
+
+month_div_assets = "BTCUSD, ETHUSD, US30, SPX500, NDQ100"
+month_div_tip = "Assets beeter view from month's perspective"
+
+indicator("AHK divider 04-2024", shorttitle= "AHK. 04-2024", overlay=true,precision=PRECISION_LIMIT, max_lines_count=LINE_LIMIT)
+// -----------------------------------------------------------------------------
+//                                  1 inputs                                    
+// -----------------------------------------------------------------------------
+g1 = "divider color"
+m_div_color = input.color(color.new(m_divider_color,90), title="Month color", group='g1', inline='l1g1')
+w_div_color = input.color(color.new(w_divider_color,90), title="Week color", group='g1', inline='l1g1')
+
+g2 = "candle hightlight color"
+bull_color = input.color(bullish_color, title="Bull", group='g2', inline='l1g2')
+bear_color = input.color(bearish_color, title="Bear", group='g2', inline='l1g2')
+// hk_bear_color = input.color(hikin_bear_color, title="HK Bear color", group='g2', inline='l2g2')
+
+
+show_debug = input.bool(false,title="Show Debug Value")
+m_assets = input.text_area(month_div_assets, title="Monthly divided assets", tooltip=month_div_tip)
+// -----------------------------------------------------------------------------
+//                                 2 Functions                                  
+// -----------------------------------------------------------------------------
+// ----------------------------- get ticker name -------------------------------
+get_ticker_name() =>
+    a = str.split(this_ticker_id, ":") 
+    [array.get(a, 0),array.get(a, 1)]
+
+// ------------------------ get period divider color ---------------------------
+get_auto_period_color() =>
+    is_startOfTheWeek = (dayofweek == dayofweek.monday or dayofweek == dayofweek.tuesday or dayofweek == dayofweek.wednesday)
+    is_startOfTheMonth = (dayofmonth == 1 or dayofmonth == 2 or dayofmonth == 3 or dayofmonth == 4)
+    [_, tickerName] = get_ticker_name()
+    is_mPersepective = str.contains(m_assets, tickerName)
+    // month condition
+    is_enteringNewMonth = (is_startOfTheMonth and not is_startOfTheMonth[1])
+    // week condition
+    is_enteringNewWeek = (is_startOfTheWeek and not is_startOfTheWeek[1])
+
+    // check if asset is better viewed from monthly perspective
+    if is_mPersepective
+        divider_bg_color = is_enteringNewMonth ? m_div_color : na
+        divider_bg_color
+    else
+        divider_bg_color = is_enteringNewWeek ? w_div_color : na
+        divider_bg_color
+
+// --------------------------- Hikin Aishi Candles -----------------------------
+hk(_src)  => 
+    hk_c = ohlc4 // hk_close
+    hk_o = float(na)
+    hk_o := na(hk_o[1]) ? (open + close) / 2 : (nz(hk_o[1]) + nz(hk_c[1])) / 2 // open
+    hk_h = math.max(high, math.max(hk_o, hk_c)) // high
+    hk_l = math.min(low,  math.min(hk_o, hk_c)) // low
+    hk_hl2  = math.avg(hk_h, hk_l) 
+    hk_hlc3 = math.avg(hk_h, hk_l, hk_c) 
+    hk_ohlc4 = math.avg(hk_o, hk_h, hk_l, hk_c)
+    hk_price  = _src == 'close' ? hk_c : _src == 'open' ? hk_o : _src == 'high' ? hk_h : _src == 'low' ? hk_l : _src == 'hl2' ? hk_hl2 : _src == 'hlc3' ? hk_hlc3 : hk_ohlc4  
+    math.round(hk_price / syminfo.mintick) * syminfo.mintick  // PineCoders method for aligning Pine prices with chart instrument prices    
+
+auto_hk_bear_color(str_tf)=>
+    _15m = 900
+    _1h = 3600  
+    _4h = 14400
+    _1d = 86400
+    _1w = 604800
+    this_tf_second = timeframe.in_seconds(chart_tf)
+    if this_tf_second <= _15m
+        color.red
+    else if this_tf_second <= _1h
+        #66bb6a // lite lime
+    else if this_tf_second <= _4h
+        color.fuchsia
+    else if this_tf_second <= _1d
+        color.new(gold_color,0)
+    else 
+        color.blue
+
+// -----------------------------------------------------------------------------
+//                                3 Calculation                                 
+// -----------------------------------------------------------------------------
+hikina_open = hk('open')
+hikina_close = hk('close')
+
+is_hikin_bear = hk('open') > hk('close') // boolean
+
+// -------------------- generate body, wick, border color ----------------------
+is_bullish = close > open
+body_c = is_bullish ? bull_color : bear_color
+wick_c = is_hikin_bear ? auto_hk_bear_color(chart_tf) : bear_color
+border_c = wick_c
+
+
+// -----------------------------------------------------------------------------
+//                             4 Color Conditions                               
+// -----------------------------------------------------------------------------
+// --------------------------------- divider -----------------------------------
+bg_color = get_auto_period_color()
+
+// ------------------------------ candle_stick ---------------------------------
+// hk_bear_border_color = is_hikin_bear ? auto_hk_bear_color(chart_tf) : border_c
+
+// -----------------------------------------------------------------------------
+//                                   5 plot                                     
+// -----------------------------------------------------------------------------
+bgcolor(bg_color, title="Period Color")
+
+plotcandle(open, high, low, close, color=body_c, wickcolor=wick_c, bordercolor=border_c)
+// -----------------------------------------------------------------------------
+//                              6 Debug Section                                 
+// -----------------------------------------------------------------------------
+// display status On the chart's last bar
+if barstate.islast and show_debug
+    debug_msg = "debug val "+  str.tostring(10)
+    myLabel = label.new(x=bar_index + 10, y=close, color=color.red, style=label.style_label_left, size=size.normal)
+    label.set_text(id=myLabel, text=debug_msg)
