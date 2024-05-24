@@ -28,8 +28,9 @@ this_sym = array.get(arr, 1) // series
 var gold_color =#b59410
 var bullish_color = #b2b5be
 var bearish_color = #434651 // charcoal black
+var clear_color = color.new(color.white,100)
 
-indicator("Simple power bar using Hikin Aishi, 2024", shorttitle= "SPB-HK,2024", overlay=false, precision=PRECISION_LIMIT)
+indicator("Power bar using Hikin Aishi, 2024", shorttitle= "SPB-HK,2024", overlay=false, precision=PRECISION_LIMIT)
 // -----------------------------------------------------------------------------
 //                                  1 inputs                                    
 // -----------------------------------------------------------------------------
@@ -39,6 +40,12 @@ tip12 = 'Auto bearish color'
 bull_color = input.color(bullish_color, title="Bull", group=g1, inline='l1g1')
 bear_color = input.color(bearish_color, title="Bear", group=g1, inline='l1g1')
 show_label = input.bool(true,title="Show Label", group=g1, inline='l2g1')
+auto_bear_color = input.bool(true,title="Overide Bearish Color", group=g1, inline='l2g1', tooltip=tip12)
+
+g2 = "second order"
+tip21 = 'highlight confirmation if there are consecutive bars = 3 bars'
+// confirm_period = input.int(2,title="", group=g2, inline='l1g2')
+show_confirm = input.bool(true,title="2nd order period", group=g2, inline='l1g2', tooltip=tip21)
 
 // -----------------------------------------------------------------------------
 //                                 2 Functions                                  
@@ -63,28 +70,53 @@ hk(_src)  =>
     math.round(hk_price / syminfo.mintick) * syminfo.mintick  // PineCoders method for aligning Pine prices with chart instrument prices    
 
 // ------------------------------- auto colors ---------------------------------
+// auto bear highlight
+auto_period_bear_color(str_tf)=>
+    _15m = 900
+    _1h = 3600  
+    _4h = 14400
+    _1d = 86400
+    _1w = 604800
+    this_tf_second = timeframe.in_seconds(str_tf)
+    if this_tf_second <= _15m
+        color.red
+    else if this_tf_second <= _1h
+        #66bb6a // lite lime
+    else if this_tf_second <= _4h
+        color.fuchsia
+    else if this_tf_second <= _1d
+        color.new(gold_color,0)
+    else 
+        color.blue
 
-// --------------------- fetch hk candles with tf input ------------------------
-
-// ---------------------------- generate hk bars -------------------------------
+// ----------------------- Recursive consecutive check -------------------------
 
 // -----------------------------------------------------------------------------
 //                                3 Calculation                                 
 // -----------------------------------------------------------------------------
 is_bullish = hk('close') > hk('open')
+second_order_bullish = not is_bullish[3] and is_bullish[2] and is_bullish[1] and is_bullish 
+second_order_bearish = is_bullish[3] and not is_bullish[2] and not is_bullish[1] and not is_bullish 
 
 // -----------------------------------------------------------------------------
 //                             4 Color Conditions                               
 // -----------------------------------------------------------------------------
-bar_col = is_bullish ? bullish_color : bearish_color
+bar_col = is_bullish ? bullish_color : auto_bear_color ? auto_period_bear_color(this_tf) : bearish_color
 
+sec2_bear_highlight = second_order_bearish ? auto_period_bear_color(this_tf) : clear_color
+sec2_bull_highlight = second_order_bullish ? bullish_color : clear_color
 // -----------------------------------------------------------------------------
 //                                   5 plot                                     
 // -----------------------------------------------------------------------------
 var a = 0.1
 
+// plot confirmation (top)
+plot(a+a/10,title="top confirmation", style=plot.style_circles,display=display.pane, color = sec2_bear_highlight, linewidth=4)
 // plot Heikin Bars
-plot(a,title='Heikin Aishi status',style=plot.style_columns, linewidth=8, color=bar_col, histbase=0)
+plot(a,title='Heikin Aishi status',style=plot.style_columns, linewidth=8, color=bar_col, histbase=0, display=display.pane)
+// plot confirmation (bottom)
+plot(0-a/10,title="bottom confirmation", style=plot.style_circles, display=display.pane, color=sec2_bull_highlight, linewidth=4)
+
 // -----------------------------------------------------------------------------
 //                              6 Debug Section                                 
 // -----------------------------------------------------------------------------
