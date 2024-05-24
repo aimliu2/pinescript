@@ -1,2 +1,2 @@
 # pinescript
-Tradingview awesome script
+My Tradingview Awesome Script

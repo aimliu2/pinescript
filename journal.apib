@@ -1,0 +1,62 @@
+# Trading Log Structure
+# v2024.5
+
+## Positions
++ Long
++ Short
+
+## Status
++ Pending
++ Holding
++ Resolve
++ Intervene
+
+## Asset - Prevent multi assets overtrade
++ classified by Currency group i.e. G1 EURUSD
+
+## HTF Trend
++ Bullish
++ Bearish
+
+# Execution
+## InTend Trade
++ ProTrend
++ Pullback
++ Counter
+
+## POI location (D0->1P)
+### + 0.75.Prem
+### + 0.71.Prem
+### + 0.618.Prem
+### + 0.50.PD
+### + 0.382.Disc
+### + 0.29.Disc
+### + 0.25.Disc
+
+## POI Objective
++ OB.Discount -> B.HL
++ OB.HL.Reject -> OB.Discount
++ OB.Pb.Premium -> OB.Xtreme
++ OB.Pb.Discount -> OB.Xtreme
+  
+## Entry
++ Limit Entry
++ Mkt Entry
+
+## Enter Reclaim Block at POI
++ Time,KZ
+
+## NOTE
+htf.DoubleTOP.expect.trendReversal
+
+## Example
+Short | HOLDING | EURUSD | Counter | Pullback | OB.Pb.Premium -> OB.Xtreme | Limit Entry | Time | [note]
+
+# IMAGE
++ POI
++ ENTRY
++ Development
+
+
+# code
+hour(parseDate(formatDate(prop("Time"), "YYYY-MM-DDTHH:mmZ")))

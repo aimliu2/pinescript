@@ -1,0 +1,104 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TheAimLiu2
+// @version=5
+
+// Sections
+// 0 Constants
+// 1 Inputs
+// 2 Functions
+// 3 Calculation
+// 4 Color Conditions
+// 5 Plot
+// 6 Debug/label
+
+// -----------------------------------------------------------------------------
+//                                 0 Constant                                   
+// -----------------------------------------------------------------------------
+PRECISION_LIMIT = 4 // significant numbers
+
+this_tf = timeframe.period
+this_ticker = syminfo.tickerid
+this_tz = syminfo.timezone
+
+// ----------------------------- Pre-processing --------------------------------
+arr = str.split(this_ticker, ":") 
+this_sym = array.get(arr, 1) // series
+
+// ------------------------------ candle colors --------------------------------
+var gold_color =#b59410
+var bullish_color = #b2b5be
+var bearish_color = #434651 // charcoal black
+
+indicator("Simple power bar using Hikin Aishi, 2024", shorttitle= "SPB-HK,2024", overlay=false, precision=PRECISION_LIMIT)
+// -----------------------------------------------------------------------------
+//                                  1 inputs                                    
+// -----------------------------------------------------------------------------
+
+g1 = "hightlight colors"
+tip12 = 'Auto bearish color'
+bull_color = input.color(bullish_color, title="Bull", group=g1, inline='l1g1')
+bear_color = input.color(bearish_color, title="Bear", group=g1, inline='l1g1')
+show_label = input.bool(true,title="Show Label", group=g1, inline='l2g1')
+auto_bear_color = input.bool(true,title="Overide Bearish Color", group=g1, inline='l2g1', tooltip=tip12)
+
+// -----------------------------------------------------------------------------
+//                                 2 Functions                                  
+// -----------------------------------------------------------------------------
+// --------------------------- fetch data from tf ------------------------------
+// fetch data from selected tf
+fetch_tf(_sym, _res, _src) => 
+    request.security(_sym, _res, _src, lookahead = barmerge.lookahead_on)
+
+// --------------------------- Hikin Aishi Candles -----------------------------
+// fetch HK candles from ohlc on the tf
+hk(_src)  => 
+    hk_c = ohlc4 // hk_close
+    hk_o = float(na)
+    hk_o := na(hk_o[1]) ? (open + close) / 2 : (nz(hk_o[1]) + nz(hk_c[1])) / 2 // open
+    hk_h = math.max(high, math.max(hk_o, hk_c)) // high
+    hk_l = math.min(low,  math.min(hk_o, hk_c)) // low
+    hk_hl2  = math.avg(hk_h, hk_l) 
+    hk_hlc3 = math.avg(hk_h, hk_l, hk_c) 
+    hk_ohlc4 = math.avg(hk_o, hk_h, hk_l, hk_c)
+    hk_price  = _src == 'close' ? hk_c : _src == 'open' ? hk_o : _src == 'high' ? hk_h : _src == 'low' ? hk_l : _src == 'hl2' ? hk_hl2 : _src == 'hlc3' ? hk_hlc3 : hk_ohlc4  
+    math.round(hk_price / syminfo.mintick) * syminfo.mintick  // PineCoders method for aligning Pine prices with chart instrument prices    
+
+// ------------------------------- auto colors ---------------------------------
+
+// --------------------- fetch hk candles with tf input ------------------------
+
+// ---------------------------- generate hk bars -------------------------------
+
+// -----------------------------------------------------------------------------
+//                                3 Calculation                                 
+// -----------------------------------------------------------------------------
+is_bullish = hk('close') > hk('open')
+
+// -----------------------------------------------------------------------------
+//                             4 Color Conditions                               
+// -----------------------------------------------------------------------------
+bar_col = is_bullish ? bullish_color : bearish_color
+
+// -----------------------------------------------------------------------------
+//                                   5 plot                                     
+// -----------------------------------------------------------------------------
+var a = 0.1
+
+// plot Heikin Bars
+plot(a,title='Heikin Aishi status',style=plot.style_columns, linewidth=8, color=bar_col, histbase=0)
+// -----------------------------------------------------------------------------
+//                              6 Debug Section                                 
+// -----------------------------------------------------------------------------
+var label myLabel1 = na
+
+
+// display status On the chart's last bar
+if last_bar_index == bar_index and show_label 
+
+    label_msg = str.tostring(this_tf)
+    myLabel1 := label.new(x=bar_index + 1, y=a/2, color=bar_col[1], style=label.style_label_left, size=size.normal, tooltip=label_msg)
+    label.set_text(id=myLabel1, text=label_msg)
+
+else
+    myLabel1 := na
+
