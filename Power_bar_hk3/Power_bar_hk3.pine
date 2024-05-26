@@ -20,31 +20,54 @@ this_tf = timeframe.period
 this_ticker = syminfo.tickerid
 this_tz = syminfo.timezone
 
-// ----------------------------- Pre-processing --------------------------------
-arr = str.split(this_ticker, ":") 
-this_sym = array.get(arr, 1) // series
-
-// ------------------------------ candle colors --------------------------------
+g1 = "Lv1. candle bars"
 var gold_color =#b59410
 var bullish_color = #b2b5be
 var bearish_color = #434651 // charcoal black
 var clear_color = color.new(color.white,100)
 
-indicator("Power bar using Hikin Aishi, 2024", shorttitle= "SPB-HK,2024", overlay=false, precision=PRECISION_LIMIT)
+
+g2 = "Lv2. period bars"
+asia_color = color.rgb(255, 0, 0, 50) // red
+p1_color = color.new(asia_color,20)
+london_color = color.rgb(83, 127, 231, 20) // blue
+p2_color = color.new(london_color,20)
+newyork_color = color.green
+p3_color = color.new(newyork_color,20)
+
+
+indicator("Power bar using Hikin Aishi, 2024", shorttitle= "Power_bar_hk3", overlay=false, precision=PRECISION_LIMIT)
 // -----------------------------------------------------------------------------
 //                                  1 inputs                                    
 // -----------------------------------------------------------------------------
 
-g1 = "hightlight colors"
+// ------------------------- g1 = "Lv1. candle bars" ---------------------------
 tip12 = 'Auto bearish color'
-bull_color = input.color(bullish_color, title="Bull", group=g1, inline='l1g1')
-bear_color = input.color(bearish_color, title="Bear", group=g1, inline='l1g1')
-show_label = input.bool(true,title="Show Label", group=g1, inline='l2g1')
-auto_bear_color = input.bool(true,title="Overide Bearish Color", group=g1, inline='l2g1', tooltip=tip12)
+bull_color = input.color(bullish_color, title="Bull", group=g1, inline='g1l1')
+bear_color = input.color(bearish_color, title="Bear", group=g1, inline='g1l1')
+show_label = input.bool(true,title="Show Label", group=g1, inline='g1l2')
+auto_bear_color = input.bool(true,title="Overide Bearish Color", group=g1, inline='g1l2', tooltip=tip12)
 
-g2 = "second order"
-tip21 = 'highlight confirmation if there are consecutive bars = 3 bars'
-show_confirm = input.bool(true,title="2nd order period", group=g2, inline='l1g2', tooltip=tip21)
+// ------------------------- g2 = "Lv2. period bars" ---------------------------
+tip2 = "Display on timeframe smaller than 4H"
+// Delta plot = 5min
+// Asia : true
+show_sess_1 = input.bool(true,title="" ,tooltip=tip2,group=g2, inline="g2l1")
+time_sess_1 = input.session(title="P1", defval="2000-0005",group=g2, inline="g2l1")
+colour_sess_1 = input.color(p1_color,"Color",inline="g2l1",group=g2)
+// London Open : True
+show_sess_2 = input.bool(true,title="" ,tooltip=tip2,group=g2, inline="g2l2")
+time_sess_2 = input.session(title="P2", defval="0200-0505",group=g2, inline="g2l2")
+colour_sess_2 = input.color(p2_color,"Color",inline="g2l2",group=g2)
+// overlap fill will show no difference
+// Ney York : True
+show_sess_3 = input.bool(true,title="" ,tooltip=tip2,group=g2, inline="g2l3")
+time_sess_3 = input.session(title="P3", defval="0700-1000",group=g2, inline="g2l3")
+colour_sess_3 = input.color(p3_color,"Color ", inline="g2l3",group=g2)
+// London Close : True
+show_sess_4 = input.bool(true,title="" ,tooltip=tip2,group=g2, inline="g2l4")
+time_sess_4 = input.session(title="P4", defval="1000-1205",group=g2, inline="g2l4")
+colour_sess_4 = input.color(p2_color,"Color", inline="g2l4",group=g2)
 
 // -----------------------------------------------------------------------------
 //                                 2 Functions                                  
@@ -54,6 +77,7 @@ show_confirm = input.bool(true,title="2nd order period", group=g2, inline='l1g2'
 fetch_tf(_sym, _res, _src) => 
     request.security(_sym, _res, _src, lookahead = barmerge.lookahead_on)
 
+// G1 : funcitons
 // --------------------------- Hikin Aishi Candles -----------------------------
 // fetch HK candles from ohlc on the tf
 hk(_src)  => 
@@ -88,50 +112,76 @@ auto_period_bear_color(str_tf)=>
     else 
         color.blue
 
-// ----------------------- Special recursive function --------------------------
-// Nope, doesn't work in pine
-// recursive_validate(n,k,con)=>
-//     if n != k 
-//         con[n] and recursive_validate(n+1,k,con)
-//     else    
-//         con[k] and not con[k+1] 
+// ----------------------------- G2 : Functions --------------------------------
+// check if current candle is inthe selected session
+// EST(America/New_York) = mGMT-5
+checkInsession(sess) =>
+    tz = "America/New_York" // Correct
+    not na(time(this_tf, sess, tz)) and timeframe.isintraday
+
+
 // -----------------------------------------------------------------------------
 //                                3 Calculation                                 
 // -----------------------------------------------------------------------------
+// g1 : calculations
 is_bullish = hk('close') > hk('open')
 second_order_bullish = not is_bullish[3] and is_bullish[2] and is_bullish[1] and is_bullish 
 second_order_bearish = is_bullish[3] and not is_bullish[2] and not is_bullish[1] and not is_bullish 
 
+// g2 : calculations
+p1_valid = checkInsession(time_sess_1)
+p2_valid = checkInsession(time_sess_2)
+p3_valid = checkInsession(time_sess_3)
+p4_valid = checkInsession(time_sess_4)
+
 // -----------------------------------------------------------------------------
 //                             4 Color Conditions                               
 // -----------------------------------------------------------------------------
+// g1 color conditions
 bar_col = is_bullish ? bullish_color : auto_bear_color ? auto_period_bear_color(this_tf) : bearish_color
-
 sec2_bear_highlight = barstate.islast ? clear_color : second_order_bearish ? auto_period_bear_color(this_tf) : clear_color
 sec2_bull_highlight = barstate.islast ? clear_color : second_order_bullish ? bullish_color : clear_color
+
+// g2 color conditions
+fill_p4_color = show_sess_4 and p4_valid ? colour_sess_4 : na
+fill_p3_color = show_sess_3 and p3_valid ? colour_sess_3 : fill_p4_color
+fill_p2_color = show_sess_2 and p2_valid ? colour_sess_2 : fill_p3_color
+fill_p_color = show_sess_1 and p1_valid ? colour_sess_1 : fill_p2_color
+
 // -----------------------------------------------------------------------------
 //                                   5 plot                                     
 // -----------------------------------------------------------------------------
-var a = 0.1
+var g1_bar = 0.1
+var padding = g1_bar/10
+var top_g1_bar = g1_bar+padding
+var bot_g1_bar = 0-padding
 
+var bot_g2_bar = top_g1_bar + padding
+var top_g2_bar = bot_g2_bar + 0.025
+
+// G1 : plots
 // plot confirmation (top)
-plot(a+a/10,title="top confirmation", style=plot.style_circles,display=display.pane, color = sec2_bear_highlight, linewidth=4)
+plot(top_g1_bar,title="top confirmation", style=plot.style_circles,display=display.pane, color = sec2_bear_highlight, linewidth=4)
 // plot Heikin Bars
-plot(a,title='Heikin Aishi status',style=plot.style_columns, linewidth=8, color=bar_col, histbase=0, display=display.pane)
+plot(g1_bar,title='Power bars',style=plot.style_columns, linewidth=8, color=bar_col, histbase=0, display=display.pane)
 // plot confirmation (bottom)
-plot(0-a/10,title="bottom confirmation", style=plot.style_circles, display=display.pane, color=sec2_bull_highlight, linewidth=4)
+plot(bot_g1_bar,title="bottom confirmation", style=plot.style_circles, display=display.pane, color=sec2_bull_highlight, linewidth=4)
+
+// G2 : plots
+plot_g2_top = plot(top_g2_bar,title="top period bars", style=plot.style_line,display=display.none, color = clear_color)
+plot_g2_bot = plot(bot_g2_bar,title="bot period bars", style=plot.style_line,display=display.none, color = clear_color)
+fill(plot_g2_top, plot_g2_bot, color=fill_p_color, title="Fill Period color")
 
 // -----------------------------------------------------------------------------
 //                              6 Debug Section                                 
 // -----------------------------------------------------------------------------
 var label myLabel1 = na
 
-
 // display status On the chart's last bar
 if last_bar_index == bar_index and show_label 
 
     label_msg = str.tostring(this_tf)
-    myLabel1 := label.new(x=bar_index + 1, y=a/2, color=bar_col[1], style=label.style_label_left, size=size.normal, tooltip=label_msg)
+    myLabel1 := label.new(x=bar_index + 1, y=g1_bar/2, color=bar_col[1], style=label.style_label_left, size=size.normal, tooltip=label_msg)
     label.set_text(id=myLabel1, text=label_msg)
 
 else
