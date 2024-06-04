@@ -4,3 +4,4 @@
 
 Fair Value Gap Highlight using percentile
 - add auto bearish candle color
+- add modes

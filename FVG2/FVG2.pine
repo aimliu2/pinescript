@@ -11,9 +11,6 @@
 // 5 Plot
 // 6 Debug/label
 
-// -------------------------------- List bugs ----------------------------------s
-// week and month error <= fixed switch case logic
-
 // -----------------------------------------------------------------------------
 //                                 0 Constant                                   
 // -----------------------------------------------------------------------------
@@ -43,9 +40,11 @@ bull_color = input.color(color.blue, title="Bull", group=g1, inline='l1g1')
 bear_color = input.color(color.red, title="Bear", group=g1, inline='l1g1')
 auto_color = input.bool(true,title="Auto bear color", group=g1, inline='l1g1')
 
+g2 = "fvg mode"
 // thres = input.float(1.1,title="threshold",group=g1,inline="l2g1")
-per = input.int(70,title="percentile",group=g1,inline="l3g1")
-lookback = input.int(14,title="look back",group=g1,inline="l3g1")
+mode = input.string("RAW",title="FVG mode", options=["RAW"],group=g2, inline='l1g2')
+per = input.int(70,title="percentile",group=g2,inline="l2g2")
+lookback = input.int(14,title="look back",group=g2,inline="l2g2")
 
 // -----------------------------------------------------------------------------
 //                                 2 Functions                                  
@@ -81,7 +80,10 @@ is_higher_than_percentile = ran[1] >= ta.percentile_linear_interpolation(ran,loo
 middle_bar_bullish = close[1] - open[1] > 0
 middle_bar_has_gap = middle_bar_bullish ? low > high[2] : low[2] > high
 
-is_fvg = middle_bar_has_gap and is_higher_than_percentile
+is_fvg = switch mode
+    "RAW" => middle_bar_has_gap
+    // Default
+    => middle_bar_has_gap
 // -----------------------------------------------------------------------------
 //                             4 Color Conditions                               
 // -----------------------------------------------------------------------------
