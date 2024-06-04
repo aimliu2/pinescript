@@ -46,7 +46,8 @@ is_starOfTheWeek = (dayofweek == dayofweek.monday or dayofweek == dayofweek.tues
 // -----------------------------------------------------------------------------
 //                             4 Color Conditions                               
 // -----------------------------------------------------------------------------
-is_enteringNewWeek = (is_starOfTheWeek and not is_starOfTheWeek[1]) ? div_color : na
+conditions = is_starOfTheWeek and not is_starOfTheWeek[1] and not timeframe.ismonthly and not timeframe.isweekly
+is_enteringNewWeek = conditions ? div_color : na
 
 // -----------------------------------------------------------------------------
 //                                   5 plot                                     
