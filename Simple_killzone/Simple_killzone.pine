@@ -1,0 +1,113 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TheAimLiu2
+// @version=5
+
+// Sections
+// 0 Constants
+// 1 Inputs
+// 2 Functions
+// 3 Calculation
+// 4 Color Conditions
+// 5 Plot
+// 6 Debug/label
+
+// -----------------------------------------------------------------------------
+//                                 0 Constant                                   
+// -----------------------------------------------------------------------------
+PRECISION_LIMIT = 4 // significant numbers
+
+this_tf = timeframe.period
+this_ticker = syminfo.tickerid
+this_tz = syminfo.timezone
+
+
+g1 = "Lv1. Session bars"
+asia_color = color.rgb(255, 0, 0, 50) // red
+p1_color = color.new(asia_color,20)
+london_color = color.rgb(83, 127, 231, 20) // blue
+p2_color = color.new(london_color,20)
+newyork_color = color.green
+p3_color = color.new(newyork_color,20)
+
+
+indicator("Simple Session killzone, 2024", shorttitle= "KZ", overlay=true, precision=PRECISION_LIMIT)
+// -----------------------------------------------------------------------------
+//                                  1 inputs                                    
+// -----------------------------------------------------------------------------
+
+// ------------------------- g1 = "Lv1. period bars" ---------------------------
+tip1 = "Display on timeframe smaller than 4H"
+// Delta plot = 5min
+// Asia : true
+show_sess_1 = input.bool(true,title="" ,tooltip=tip1,group=g1, inline="g1l1")
+time_sess_1 = input.session(title="P1", defval="2000-0005",group=g1, inline="g1l1")
+colour_sess_1 = input.color(p1_color,"Color",inline="g1l1",group=g1)
+// London Open : True
+show_sess_2 = input.bool(true,title="" ,tooltip=tip1,group=g1, inline="g1l2")
+time_sess_2 = input.session(title="P2", defval="0200-0505",group=g1, inline="g1l2")
+colour_sess_2 = input.color(p2_color,"Color",inline="g1l2",group=g1)
+// overlap fill will show no difference
+// Ney York : True
+show_sess_3 = input.bool(true,title="" ,tooltip=tip1,group=g1, inline="g1l3")
+time_sess_3 = input.session(title="P3", defval="0700-1000",group=g1, inline="g1l3")
+colour_sess_3 = input.color(p3_color,"Color ", inline="g1l3",group=g1)
+// London Close : True
+show_sess_4 = input.bool(true,title="" ,tooltip=tip1,group=g1, inline="g1l4")
+time_sess_4 = input.session(title="P4", defval="1000-1205",group=g1, inline="g1l4")
+colour_sess_4 = input.color(p2_color,"Color", inline="g1l4",group=g1)
+
+// -----------------------------------------------------------------------------
+//                                 2 Functions                                  
+// -----------------------------------------------------------------------------
+
+// ----------------------------- G2 : Functions --------------------------------
+// check if current candle is inthe selected session
+// EST(America/New_York) = mGMT-5
+checkInsession(sess) =>
+    tz = "America/New_York" // Correct
+    not na(time(this_tf, sess, tz)) and timeframe.isintraday
+
+
+// -----------------------------------------------------------------------------
+//                                3 Calculation                                 
+// -----------------------------------------------------------------------------
+
+// g2 : calculations
+p1_valid = checkInsession(time_sess_1)
+p2_valid = checkInsession(time_sess_2)
+p3_valid = checkInsession(time_sess_3)
+p4_valid = checkInsession(time_sess_4)
+
+// -----------------------------------------------------------------------------
+//                             4 Color Conditions                               
+// -----------------------------------------------------------------------------
+// g2 color conditions
+fill_p4_color = show_sess_4 and p4_valid ? colour_sess_4 : na
+fill_p3_color = show_sess_3 and p3_valid ? colour_sess_3 : fill_p4_color
+fill_p2_color = show_sess_2 and p2_valid ? colour_sess_2 : fill_p3_color
+fill_p_color = show_sess_1 and p1_valid ? colour_sess_1 : fill_p2_color
+
+// -----------------------------------------------------------------------------
+//                                   5 plot                                     
+// -----------------------------------------------------------------------------
+
+// G2 : plots
+plotshape(p1_valid , location = location.bottom, style = shape.square, size = size.tiny, color = colour_sess_1)
+plotshape(p2_valid , location = location.bottom, style = shape.square, size = size.tiny, color = colour_sess_2)
+plotshape(p3_valid , location = location.bottom, style = shape.square, size = size.tiny, color = colour_sess_3)
+plotshape(p4_valid , location = location.bottom, style = shape.square, size = size.tiny, color = colour_sess_4)
+// -----------------------------------------------------------------------------
+//                              6 Debug Section                                 
+// -----------------------------------------------------------------------------
+// var label myLabel1 = na
+
+// // display status On the chart's last bar
+// if last_bar_index == bar_index and show_label 
+
+//     label_msg = str.tostring(this_tf)
+//     myLabel1 := label.new(x=bar_index + 1, y=g1_bar/2, color=bar_col[1], style=label.style_label_left, size=size.normal, tooltip=label_msg)
+//     label.set_text(id=myLabel1, text=label_msg)
+
+// else
+//     myLabel1 := na
+
