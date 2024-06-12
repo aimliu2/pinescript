@@ -28,23 +28,25 @@ _1M = 2628003
 
 // ------------------------------ candle colors --------------------------------
 var gold_color =#b59410
+var red_color = #e4572e
+var lime_color = #66bb6a
 
 indicator("Fair Value Gap 2, 2024", shorttitle= "FVG2,2024", overlay=true, precision=PRECISION_LIMIT)
 // -----------------------------------------------------------------------------
 //                                  1 inputs                                    
 // -----------------------------------------------------------------------------
 
-g1 = "hightlight colors"
-tip12 = 'Auto bearish color'
-bull_color = input.color(color.blue, title="Bull", group=g1, inline='l1g1')
-bear_color = input.color(color.red, title="Bear", group=g1, inline='l1g1')
-auto_color = input.bool(true,title="Auto bear color", group=g1, inline='l1g1')
+g1 = "FVG color"
+tip11 = 'Auto FVG color'
+auto_color = input.bool(true,title="Auto color", group=g1,tooltip=tip11, inline='l1g1')
+fvg_color = input.color(color.red, title="FVG color", group=g1, inline='l1g1')
+
 
 g2 = "fvg mode"
+mode = input.string("RAWs",title="FVG mode", options=["RAWs"],group=g2, inline='l1g2')
 // thres = input.float(1.1,title="threshold",group=g1,inline="l2g1")
-mode = input.string("RAW",title="FVG mode", options=["RAW"],group=g2, inline='l1g2')
-per = input.int(70,title="percentile",group=g2,inline="l2g2")
-lookback = input.int(14,title="look back",group=g2,inline="l2g2")
+// per = input.int(70,title="percentile",group=g2,inline="l2g2")
+// lookback = input.int(14,title="look back",group=g2,inline="l2g2")
 
 // -----------------------------------------------------------------------------
 //                                 2 Functions                                  
@@ -54,17 +56,14 @@ lookback = input.int(14,title="look back",group=g2,inline="l2g2")
 // error M and W
 this_tf_second = timeframe.in_seconds(timeframe.period)
 [c,d] = switch 
-    this_tf_second <= _15m  => [color.red,1]
-    (this_tf_second > _15m and this_tf_second <= _1h) => [#66bb6a,2]
+    this_tf_second <= _15m  => [red_color,1]
+    (this_tf_second > _15m and this_tf_second <= _1h) => [lime_color,2]
     (this_tf_second > _1h and this_tf_second <= _4h) => [color.fuchsia,3]
-    (this_tf_second > _4h and this_tf_second <= _1d) => [color.new(gold_color,0),4]
+    (this_tf_second > _4h and this_tf_second <= _1d) => [gold_color,4]
     (this_tf_second > _1d and this_tf_second <= _1w) => [color.aqua,5]
+    (this_tf_second > _1w and this_tf_second <= _1M) => [color.blue,6]
     // Default used when the three first cases do not match.
-    => [color.blue,9]
-
-// --------------------- fetch hk candles with tf input ------------------------
-
-// ---------------------------- generate hk bars -------------------------------
+    => [color.black,9]
 
 // -----------------------------------------------------------------------------
 //                                3 Calculation                                 
@@ -74,27 +73,27 @@ this_tf_second = timeframe.in_seconds(timeframe.period)
 ran = math.abs(close - open) //range
 // pin_ran = math.abs(high - low) - math.abs(close - open) // pin range
 // is_longstick = ran/pin_ran < thres
-is_higher_than_percentile = ran[1] >= ta.percentile_linear_interpolation(ran,lookback,per)
+// is_higher_than_percentile = ran[1] >= ta.percentile_linear_interpolation(ran,lookback,per)
 
 // middle_bar_expansion = ran[2] < ran[1] and ran[1] > ran
 middle_bar_bullish = close[1] - open[1] > 0
 middle_bar_has_gap = middle_bar_bullish ? low > high[2] : low[2] > high
 
 is_fvg = switch mode
-    "RAW" => middle_bar_has_gap
+    "RAWs" => middle_bar_has_gap
     // Default
     => middle_bar_has_gap
 // -----------------------------------------------------------------------------
 //                             4 Color Conditions                               
 // -----------------------------------------------------------------------------
-b_color = auto_color ? c : bear_color
-candle_color = middle_bar_bullish ? bull_color : b_color
+body_color_conditon = auto_color ? c : fvg_color
+last_bar_condition = last_bar_index - bar_index < 1
+plot_body_color = is_fvg and last_bar_condition ? color.orange : is_fvg ? body_color_conditon : na
 
 // -----------------------------------------------------------------------------
 //                                   5 plot                                     
 // -----------------------------------------------------------------------------
-
-barcolor(is_fvg ? candle_color : na , title="shave bar", offset=-1)
+barcolor(plot_body_color , title="FVG", offset=-1)
 // plot(ran,title="range",display=display.status_line,color=candle_color)
 // plot(pin_ran/ran,title="range",display=display.status_line,color=color.black)
 
