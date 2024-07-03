@@ -92,10 +92,7 @@ this_tf_second = timeframe.in_seconds(timeframe.period)
 // -----------------------------------------------------------------------------
 //                                3 Calculation                                 
 // -----------------------------------------------------------------------------
-sma = ta.sma(src,sma_period)
-sma_d = ta.sma(src[1],sma_period)
-
-delta_sma = sma-sma_d
+delta_sma = src-src[x]
 volatility = delta_sma / ta.stdev(delta_sma,threshold_period)
 above_threshold = math.abs(volatility) > threshold
 ut = threshold
