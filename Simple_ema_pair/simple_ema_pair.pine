@@ -1,0 +1,110 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TheAimLiu
+
+// -----------------------------------------------------------------------------
+//                                  Constant                                    
+// -----------------------------------------------------------------------------
+// period
+short_period = 25   
+medium_period = 50
+SHOW_LAST = 1000 // amount of indicators drawn
+sigma = 175 // interested range
+sigma_ = 25 // outlier range
+
+_15m = 900
+_1h = 3600  
+_4h = 14400
+_1d = 86400
+_1w = 604800
+_1M = 2628003
+
+epsilon = syminfo.mintick
+this_tf = timeframe.period
+this_ticker = syminfo.tickerid
+
+var BULLSIH_COLOR = #B2B5BE // gray
+var red_color = #e4572e
+clear_color = color.new(color.white,100)
+green_color = color.rgb(14, 131, 136) // green
+purplr_color = color.rgb(143, 67, 238) // purple
+gold_color = color.rgb(181, 148, 16) // gold
+blue_color = color.rgb(83, 127, 231) // blue
+trail_color = color.new(color.gray,50)
+squeeze_color = color.new(color.orange, 50)
+
+// @version=5
+indicator(shorttitle = "EMAp", title="Simple EMA pairs", overlay=true)
+// -----------------------------------------------------------------------------
+//                                    input                                     
+// -----------------------------------------------------------------------------
+// Declare inputs
+src = input.source(close, title='Source Data')
+
+tip11 = ""
+
+g1="MACD config"
+show_ema = input.bool(true, title="show ema", group=g1)
+s_p = input.int(short_period, title="short ema period.", group=g1)
+m_p = input.int(medium_period, title="medium ema period.", tooltip=tip11, group=g1)
+
+// -----------------------------------------------------------------------------
+//                                  Functions                                   
+// -----------------------------------------------------------------------------
+this_tf_second = timeframe.in_seconds(timeframe.period)
+[c,d] = switch 
+    this_tf_second <= _15m  => [red_color,1]
+    (this_tf_second > _15m and this_tf_second <= _1h) => [green_color,2]
+    (this_tf_second > _1h and this_tf_second <= _4h) => [purplr_color,3]
+    (this_tf_second > _4h and this_tf_second <= _1d) => [gold_color,4]
+    (this_tf_second > _1d and this_tf_second <= _1w) => [color.aqua,5]
+    (this_tf_second > _1w and this_tf_second <= _1M) => [blue_color,6]
+    // Default used when the three first cases do not match.
+    => [color.black,9]
+
+fetch_tf(_sym, _res, _src) => 
+    request.security(_sym, _res, _src, lookahead = barmerge.lookahead_on)
+// -----------------------------------------------------------------------------
+//                                Calculations                                  
+// -----------------------------------------------------------------------------
+
+
+// ----------------------------------- EMA -------------------------------------
+short_basis = ta.ema(src, s_p)
+mid_basis   = ta.ema(src, m_p)  
+macd = short_basis - mid_basis
+macd_bullish = macd > epsilon
+norm_macd = macd - epsilon
+
+// -----------------------------------------------------------------------------
+//                              Colors Condition                                
+// -----------------------------------------------------------------------------
+up_trend_color = color.new(BULLSIH_COLOR,50)
+dn_trend_color  = color.new(c,50)
+
+// ------------------------------- MACD color ----------------------------------
+
+// ------------------------------- fill color ----------------------------------
+fill_macd_color = macd_bullish ? up_trend_color : dn_trend_color
+
+// -----------------------------------------------------------------------------
+//                                    Plot                                      
+// -----------------------------------------------------------------------------
+// ----------------------------------- EMA -------------------------------------
+plot_s_ema = plot(show_ema ? short_basis : na, 'Short ema', color=na, style=plot.style_line,linewidth=1,display=display.pane)
+plot_m_ema = plot(show_ema ? mid_basis : na, 'Medium ema', color=na,  style=plot.style_line,linewidth=1,display=display.pane)
+plot_macd =  plot(show_ema ? norm_macd : na, 'Normalized MACD', color=fill_macd_color, display=display.status_line)
+
+// -----------------------------------------------------------------------------
+//                                    Fill                                      
+// -----------------------------------------------------------------------------
+// -------------------------------- ema band -----------------------------------
+fill(plot_s_ema, plot_m_ema, color=fill_macd_color, title="EMA BAND")
+
+// -----------------------------------------------------------------------------
+//                                    Debug                                     
+// -----------------------------------------------------------------------------
+// On the chart's last bar, make a label and set its text
+// if barstate.islast
+//     myLabel = label.new(x=bar_index+3 , y=short_basis, color=color.black,textcolor=color.black, style=label.style_none, size=size.normal)
+//     msg = "Sym.tickerid : " + str.tostring(syminfo.tickerid)
+//     label.set_text(id=myLabel, text=msg)
