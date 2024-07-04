@@ -1,0 +1,136 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TheAimLiu2
+// @version=5
+
+// Sections
+// 0 Constants
+// 1 Inputs
+// 2 Functions
+// 3 Calculation
+// 4 Color Conditions
+// 5 Plot
+// 6 Debug/label
+
+// -----------------------------------------------------------------------------
+//                                 0 Constant                                   
+// -----------------------------------------------------------------------------
+PRECISION_LIMIT = 4 // significant numbers
+
+this_tf = timeframe.period
+this_ticker = syminfo.tickerid
+this_tz = syminfo.timezone
+epsilon = 1e-4
+
+// ------------------------------ candle colors --------------------------------
+
+_15m = 900
+_1h = 3600  
+_4h = 14400
+_1d = 86400
+_1w = 604800
+_1M = 2628003
+
+// ------------------------------ candle colors --------------------------------
+// #b59410
+var gold_color = color.rgb(181, 148, 16), var inverse_gold = color.rgb(74, 107, 239)
+// #e4572e
+var red_color = color.rgb(228, 87, 46), var inverse_red = color.rgb(27,168,209)
+// #66bb6a 
+var lime_color = color.rgb(102, 187, 106), var inverse_lime = color.rgb(153,68,149)
+// #9C27B0
+var magenta_color = color.fuchsia, var inverse_magenta = color.rgb(31,191,4)
+// #00BCD4
+var cyan_color = color.aqua, var inverse_cyan = color.rgb(255,67,53)
+// #2196F3
+var blue_color = color.blue, var inverse_blue = color.rgb(222,105,12)
+// #363A45
+var black_color = color.black
+var inverse_black = color.rgb(240,239,244)
+
+// gray
+var gray_color = #b2b5be
+
+indicator("Simple ATR, 2024", shorttitle= "SATR,2024", overlay=false, precision=PRECISION_LIMIT)
+// -----------------------------------------------------------------------------
+//                                  1 inputs                                    
+// -----------------------------------------------------------------------------
+
+g1 = "hightlight colors"
+high_power_color = input.color(red_color, title="High Power", group=g1, inline='l1g1')
+low_power_color = input.color(gray_color, title="Low Power", group=g1, inline='l1g1')
+is_auto_color = input.bool(true, title="auto color", group=g1, inline='l2g1')
+
+g2 = "Parameters"
+tip21 = ''
+
+atr_length = input.int(14, title="ATR", group=g2, inline='l1g2')
+is_show_smo = input.bool(false, title="show smooth", group=g2, inline='l2g2')
+smooth_atr_length = input.int(9, title="length", group=g2, inline='l2g2')
+
+is_show_per = input.bool(false, title="show percentile", group=g2, inline='l3g2')
+percentile = input.int(25, title="", group=g2, inline='l3g2')
+percentile_atr_length = input.int(100, title="length", group=g2, inline='l4g2')
+
+// -----------------------------------------------------------------------------
+//                                 2 Functions                                  
+// -----------------------------------------------------------------------------
+// --------------------------- fetch data from tf ------------------------------
+// fetch data from selected tf
+// fetch_tf(_sym, _res, _src) => 
+//     request.security(_sym, _res, _src, lookahead = barmerge.lookahead_on)
+
+// -------------------------------- ATR lines ----------------------------------
+atr = ta.atr(atr_length)
+smooth_atr = ta.hma(atr,smooth_atr_length)
+threshold_atr = ta.percentile_linear_interpolation(atr,percentile_atr_length,percentile)
+
+// ------------------------------- Auto Color ----------------------------------
+// [strong, weak, code]
+this_tf_second = timeframe.in_seconds(timeframe.period)
+[col1, col2, code] = switch 
+    this_tf_second <= _15m  => [inverse_red,red_color,1]
+    (this_tf_second > _15m and this_tf_second <= _1h) => [inverse_lime,lime_color,2]
+    (this_tf_second > _1h and this_tf_second <= _4h) => [inverse_magenta,magenta_color,3]
+    (this_tf_second > _4h and this_tf_second <= _1d) => [inverse_gold,gold_color,4]
+    (this_tf_second > _1d and this_tf_second <= _1w) => [inverse_cyan,cyan_color,5]
+    (this_tf_second > _1w and this_tf_second <= _1M) => [inverse_blue,blue_color,6]
+    // Default used when the three first cases do not match.
+    => [inverse_black,black_color,9]
+
+// -----------------------------------------------------------------------------
+//                                3 Calculation                                 
+// -----------------------------------------------------------------------------
+// is_atr_volatile = atr > smooth_atr
+
+// -----------------------------------------------------------------------------
+//                             4 Color Conditions                               
+// -----------------------------------------------------------------------------
+// sig_atr_color = smooth_atr > smooth_atr[1] ? low_power_color : col2
+
+// -----------------------------------------------------------------------------
+//                                   5 plot                                     
+// -----------------------------------------------------------------------------
+// var a = 1.0
+
+// plot ATR
+plot(atr,title='atr',style=plot.style_line, linewidth=1, color=gray_color)
+plot(is_show_smo ? smooth_atr : na,title='smooth atr',style=plot.style_line, linewidth=1, color=black_color, offset=-1)
+plot(is_show_per ? threshold_atr : na,title='threshold str',style=plot.style_line, linewidth=1, color=col2)
+
+//plot else
+// -----------------------------------------------------------------------------
+//                              6 Debug Section                                 
+// -----------------------------------------------------------------------------
+// var label myLabel1 = na
+
+
+// // display status On the chart's last bar
+// if last_bar_index == bar_index and show_label 
+
+//     label_msg = str.tostring(this_tf)
+//     myLabel1 := label.new(x=bar_index + 1, y=a/2, color=bar_col[1], style=label.style_label_left, size=size.normal, tooltip=label_msg)
+//     label.set_text(id=myLabel1, text=label_msg)
+
+// else
+//     myLabel1 := na
+
