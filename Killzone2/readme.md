@@ -1,4 +1,4 @@
-# Weekly Divider
+# Killzone 2
 
 ![KZ2](Killzone2.png)
 
