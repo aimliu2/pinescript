@@ -1,0 +1,160 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TheAimLiu
+// @version=5
+// Sections
+// 0 Constants
+// 1 Inputs
+// 2 Functions
+// 3 Calculation
+// 4 Color Conditions
+// 5 Plot
+// 6 Debug
+
+// -----------------------------------------------------------------------------
+//                                 0 Constant                                   
+// -----------------------------------------------------------------------------
+MAX_BOXES = 200 // tradingview label limit : 500
+PRECISION_LIMIT = 6 // 6digits significant numbers
+
+chart_tf = timeframe.period
+this_ticker_id = syminfo.tickerid
+this_tz = syminfo.timezone
+
+var blur_color = #f0eff4
+var up_color = #9598a1
+var dn_color = #00332a
+
+indicator("Simple Range Box 03-2024", shorttitle= "SRB. 03-2024", overlay=true, max_boxes_count = MAX_BOXES, precision=PRECISION_LIMIT)
+
+// -----------------------------------------------------------------------------
+//                                  1 inputs                                    
+// -----------------------------------------------------------------------------
+// tooltips
+// tooltips_label = "TimeZone = GMT+0 (America/New_York)"
+
+sessionTime = input.session("0600-1600", title="Session time")
+sessionZone = input.string("GMT+0", title="Session time zone")
+
+// Other inputs for the boxes' visual appearance
+boxBorderSize   = input.int(2, title="Box border size", minval=0)
+SessLookBack   = input.int(11, title="Session Look back", minval=0)
+perVal   = input.int(75, title="percentile value", minval=25)
+upBoxColor      = input.color(color.new(up_color, 85), title="Up box")
+upBorderColor   = input.color(color.new(up_color, 100), title="Up border")
+downBoxColor    = input.color(color.new(dn_color, 85), title="Down box")
+downBorderColor = input.color(color.new(dn_color, 100), title="Down border")
+blur_col = input.color(blur_color,title='Blur Colors')
+
+// -----------------------------------------------------------------------------
+//                                 2 Functions                                  
+// -----------------------------------------------------------------------------
+
+// InSession() returns 'true' when the current bar happens inside
+// the specified session, corrected for the given time zone (optional).
+// Returns 'false' when the bar doesn't happen in that time period,
+// or when the chart's time frame is 1 day or higher. 
+InSession(sessionTime, sessionZone) =>
+    // not na(time(timeframe.period, sessionTime, sessionTimeZone))
+    not na(time(timeframe.period, sessionTime, sessionZone)) and timeframe.isintraday
+
+
+// -----------------------------------------------------------------------------
+//                                3 Calculation                                 
+// -----------------------------------------------------------------------------
+
+// Create variables
+var sessionHighPrice = 0.0
+var sessionLowPrice  = 0.0
+var sessionOpenPrice = 0.0
+
+var range_val = 0.0
+var center = 0.0
+var initLB = SessLookBack
+
+var box sessionBox = na
+upper_line = line.new(na, na, na, na,color=color.red)
+lower_line = line.new(na, na, na, na,color=color.red)
+
+// See if the session is currently active and just started
+inSession    = InSession(sessionTime, sessionZone)
+sessionStart = inSession and not inSession[1]
+sessionEnd = inSession[1] and not inSession
+
+// When a new session starts, set the session high and low to the data
+// of the bar in the session.
+if sessionStart
+    sessionHighPrice := high
+    sessionLowPrice  := low
+    sessionOpenPrice := open
+    initLB := initLB[1] - 1
+
+// Else, during the session, track the highest high and lowest low
+else if inSession
+    sessionHighPrice := math.max(sessionHighPrice, high)
+    sessionLowPrice  := math.min(sessionLowPrice, low)
+
+    center := (sessionHighPrice + sessionLowPrice)/2
+    range_val := sessionHighPrice - sessionLowPrice
+
+else if sessionEnd
+    if initLB <= 0
+        initLB := SessLookBack
+    else
+        initLB := nz(initLB[1])
+
+else
+    range_val := nz(range_val[1])
+
+checker = ta.barssince(sessionEnd and initLB == SessLookBack) // last session
+r_checker = checker > 0 ? checker : 1
+percentile_range = ta.percentile_linear_interpolation(range_val, r_checker, perVal)
+
+// -----------------------------------------------------------------------------
+//                             4 Color Conditions                               
+// -----------------------------------------------------------------------------
+// blur on not killzone
+blur_session = not inSession
+blur_zone_candles = blur_session ? blur_col : na
+
+// -------------------------- Recolor candle sticks ----------------------------
+barcolor(blur_zone_candles)
+
+// -----------------------------------------------------------------------------
+//                                   5 plot                                     
+// -----------------------------------------------------------------------------
+// When a session begins, make a new box for that session
+if sessionStart
+    sessionBox := box.new(left=bar_index, top=na, right=na, bottom=na,border_width=boxBorderSize)
+
+// During the session, update that session's existing box
+if inSession
+    box.set_top(sessionBox, sessionHighPrice)
+    box.set_bottom(sessionBox, sessionLowPrice)
+    box.set_right(sessionBox, bar_index + 1)
+    
+    // See if bar closed higher than session open. When it did, make
+    // box green (and use red otherwise).
+    if close > sessionOpenPrice
+        box.set_bgcolor(sessionBox, upBoxColor)
+        box.set_border_color(sessionBox, upBorderColor)
+    else
+        box.set_bgcolor(sessionBox, downBoxColor)
+        box.set_border_color(sessionBox, downBorderColor)
+
+
+// p1 = plot(center+percentile_range/2)
+// p2 = plot(center-percentile_range/2)
+
+
+
+// -----------------------------------------------------------------------------
+//                              6 Debug Section                                 
+// -----------------------------------------------------------------------------
+// display status
+// On the chart's last bar, make a label and set its text
+
+// if barstate.islast
+//     // v1 = center
+//     myLabel = label.new(x=bar_index + 10, y=close, color=color.gray, style=label.style_label_left, size=size.normal)
+//     msg = "debug val " + str.tostring(center) +" "+ str.tostring(range_val) + " " + str.tostring(percentile_range)
+//     label.set_text(id=myLabel, text=msg)
