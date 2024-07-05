@@ -42,6 +42,7 @@ var blue_color = color.blue, var inverse_blue = color.rgb(222,105,12)
 // #363A45
 var black_color = color.black
 var inverse_black = color.rgb(240,239,244)
+var clear_color = color.new(color.white,100)
 
 indicator("Fair Value Gap 5, 2024", shorttitle= "FVG5,2024", overlay=true, precision=PRECISION_LIMIT)
 // -----------------------------------------------------------------------------
@@ -63,6 +64,7 @@ g3 = "moving average"
 src = input.source(close, title="ma src",group=g3,inline="l1g3")
 ema_length = input.int(14,title="length",group=g3,inline="l1g3")
 is_show_ema = input.bool(true,title="show ma", group=g3,inline='l2g3')
+ema_color = input.color(black_color, title="Color", group=g3, inline='l2g3')
 
 // -----------------------------------------------------------------------------
 //                                 2 Functions                                  
@@ -130,12 +132,12 @@ plot_wick_color = plot_body_color
 
 // breaker_border_col = is_fvg_breaker ? color.red : na
 plot_border_color = is_fvg and last_bar_condition ? color.yellow : is_fvg and is_BISI ? inverse_black : is_fvg and not is_BISI ? color.red : na
-
+plot_ema_color = is_show_ema ? ema_color : clear_color
 // -----------------------------------------------------------------------------
 //                                   5 plot                                     
 // -----------------------------------------------------------------------------
 plotcandle(fvg_o,fvg_h,fvg_l,fvg_c,title="FVG",color=plot_body_color, wickcolor=plot_wick_color,bordercolor=plot_border_color, display=display.pane)
-plot(is_show_ema ? ema : na,title="ma",display=display.pane,color=black_color)
+plot(ema,title="ma",display=display.all,color=plot_ema_color)
 // barcolor(plot_body_color , title="FVG", offset=-1)
 // plot(pin_ran/ran,title="range",display=display.status_line,color=color.black)
 
