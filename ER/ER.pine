@@ -1,0 +1,175 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © TheAimLiu2
+// @version=5
+
+// -------------------------------- Sections -----------------------------------
+// 0 Constants
+// 1 Inputs
+// 2 Functions
+// 3 Calculation
+// 4 Color Conditions
+// 5 Plot
+// 6 Debug/label
+
+// -----------------------------------------------------------------------------
+//                                 0 Constant                                   
+// -----------------------------------------------------------------------------
+PRECISION_LIMIT = 4 // significant numbers
+
+this_tf = timeframe.period
+this_ticker = syminfo.tickerid
+this_tz = syminfo.timezone
+epsilon = 5*1e-5
+
+// -------------------------------- Timeframe ----------------------------------
+_15m = 900
+_1h = 3600  
+_4h = 14400
+_1d = 86400
+_1w = 604800
+_1M = 2628003
+
+// ------------------------------ Candle colors --------------------------------
+// #b59410
+var gold_color = color.rgb(181, 148, 16), var inverse_gold = color.rgb(74, 107, 239)
+// #e4572e
+var red_color = color.rgb(228, 87, 46), var inverse_red = color.rgb(27,168,209)
+// #66bb6a 
+var lime_color = color.rgb(102, 187, 106), var inverse_lime = color.rgb(153,68,149)
+// #9C27B0
+var magenta_color = color.fuchsia, var inverse_magenta = color.rgb(31,191,4)
+// #00BCD4
+var cyan_color = color.aqua, var inverse_cyan = color.rgb(255,67,53)
+// #2196F3
+var blue_color = color.blue, var inverse_blue = color.rgb(222,105,12)
+// #363A45
+var black_color = color.black, var inverse_black = color.rgb(240,239,244)
+
+// gray
+var gray_color = #b2b5be
+
+indicator("Efficiency Ratio, 2024", shorttitle= "ER,2024", overlay=false, precision=PRECISION_LIMIT)
+// -----------------------------------------------------------------------------
+//                                  1 inputs                                    
+// -----------------------------------------------------------------------------
+
+g1 = "hightlight colors"
+high_power_color = input.color(red_color, title="Power Lv. high", group=g1, inline='l1g1')
+mid_power_color = input.color(gray_color, title="Mid", group=g1, inline='l1g1')
+low_power_color = input.color(gray_color, title="Low", group=g1, inline='l1g1')
+is_auto_color = input.bool(true, title="auto color", group=g1, inline='l2g1')
+
+g2 = "Efficiency Ratio"
+er_method = input.string("KER", title="Method", group=g2, inline='l1g2', options=["KER","WSER","TRER2/3"])
+er_src = input.source(close,title="src", group=g2, inline='l1g2')
+
+er_length = input.int(14, title="length", group=g2, inline='l2g2')
+er_span = input.int(200, title="spans", group=g2, inline='l2g2')
+er_abs = input.bool(true, title="Use absolute value", group=g2, inline='l3g2')
+
+t_method = input.string("STATIC", title="Threshold Method", group=g2, inline='l4g2', options=["STATIC"])
+er_t1 = input.int(75, title="Thres(%) : High", group=g2, inline='l5g2')
+er_t2 = input.int(55, title="Mid", group=g2, inline='l5g2')
+er_t3 = input.int(25, title="Low", group=g2, inline='l5g2')
+
+// -----------------------------------------------------------------------------
+//                                 2 Functions                                  
+// -----------------------------------------------------------------------------
+// --------------------------- fetch data from tf ------------------------------
+// fetch data from selected tf
+// fetch_tf(_sym, _res, _src) => 
+//     request.security(_sym, _res, _src, lookahead = barmerge.lookahead_on)
+
+// ------------------------------- Auto Color ----------------------------------
+// [strong, weak, code]
+this_tf_second = timeframe.in_seconds(timeframe.period)
+[inv_col, col, code] = switch 
+    this_tf_second <= _15m  => [inverse_red,red_color,1]
+    (this_tf_second > _15m and this_tf_second <= _1h) => [inverse_lime,lime_color,2]
+    (this_tf_second > _1h and this_tf_second <= _4h) => [inverse_magenta,magenta_color,3]
+    (this_tf_second > _4h and this_tf_second <= _1d) => [inverse_gold,gold_color,4]
+    (this_tf_second > _1d and this_tf_second <= _1w) => [inverse_cyan,cyan_color,5]
+    (this_tf_second > _1w and this_tf_second <= _1M) => [inverse_blue,blue_color,6]
+    // Default used when the three first cases do not match.
+    => [inverse_black,black_color,9]
+
+// --------------------------------- Kaufman -----------------------------------
+// recommended 14-20 period
+KER(s,l,dir) =>
+    nominator = dir ? math.abs(ta.mom(s,l))/l : ta.mom(s,l)/l // slope
+    // denominator = 0.0
+    // for i = 0 to l-1
+    //     denominator := denominator + math.abs(s[i] - s[i+1])
+    denominator = ta.sma(math.abs(ta.mom(s,1)),l)
+    nominator / denominator *100 // er
+
+// ----------------------------- Weight Slope ER -------------------------------
+// recommended 14-20 period
+WSER(s,l,dir) =>
+    nominator = dir ? math.abs(ta.mom(s,l))/l : ta.mom(s,l)/l // slope
+    denominator = ta.wma(math.abs(ta.mom(s,1)),l)
+    nominator/denominator *100 // wser
+
+// ------------------------------ True Range ER --------------------------------
+// denominator are very high
+// recommended 14 period
+TRER23(s,l,dir) =>
+    TRL = na(high[l])? high-low[l] : math.max(math.max(high - low[l], math.abs(high - close[l])), math.abs(low - close[l]))
+    // sign val : negative when high < low[n]
+    nominator = dir ? TRL/l : math.sign(high - low[l]) * TRL/l // slope
+    // sign val : negative when high < low[n]
+    // nominator = dir ? math.abs(ta.mom(s,l))/l : ta.mom(s,l)/l // slope
+    denominator = ta.rma(ta.tr,l) * 2/3
+    nominator/denominator*100 // trer
+
+// ---------------------------- Validate Function ------------------------------
+STATIC_VALID_COLOR(val, t1, t2, t3) =>
+    mid_c = is_auto_color ? col : mid_power_color
+    high_c = is_auto_color ? inv_col : high_power_color
+    color = switch
+        not barstate.isconfirmed => color.orange
+        math.abs(val) > t3 and math.abs(val) < t2 => mid_c // mid range
+        math.abs(val) < t3 => low_power_color // low range
+        math.abs(val) > t2 and math.abs(val) < t1 => high_c // high range
+        // Default Extreme case
+        => black_color
+
+
+
+// -----------------------------------------------------------------------------
+//                                3 Calculation                                 
+// -----------------------------------------------------------------------------
+
+er = switch
+    er_method == "WSER" => WSER(er_src,er_length,er_abs)
+    er_method == "TRER2/3" => TRER23(er_src,er_length,er_abs)
+    // Default
+    => KER(er_src,er_length,er_abs)
+
+// -----------------------------------------------------------------------------
+//                             4 Color Conditions                               
+// -----------------------------------------------------------------------------
+er_color = switch
+    // t_method == "PERCENTL" => PERCENTILE_VALID_COLOR(er, er_span, er_t1, er_t2, er_t3)
+    // Default Extreme case
+    => STATIC_VALID_COLOR(er,er_t1,er_t2,er_t3)
+
+// -----------------------------------------------------------------------------
+//                                   5 plot                                     
+// -----------------------------------------------------------------------------
+// var a = 1.0
+
+// plot Efficiency
+plot(er, title="Efficiency Ratio",style=plot.style_columns ,color = er_color)
+
+//plot else
+// -----------------------------------------------------------------------------
+//                              6 Debug Section                                 
+// -----------------------------------------------------------------------------
+// var label myLabel1 = na
+
+// display status On the chart's last bar
+if not barstate.isconfirmed
+    label_msg = str.tostring(er_method)
+    myLabel1 = label.new(x=bar_index + 1, y=er, textcolor=inverse_black,color=black_color, style=label.style_label_left, size=size.normal, tooltip=label_msg)
+    label.set_text(id=myLabel1, text=label_msg)
