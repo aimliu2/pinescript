@@ -20,7 +20,7 @@ this_tf = timeframe.period
 this_ticker = syminfo.tickerid
 this_tz = syminfo.timezone
 epsilon = 5*1e-5
-
+omit = 1e-10
 // -------------------------------- Timeframe ----------------------------------
 _15m = 900
 _1h = 3600  
@@ -48,7 +48,7 @@ var black_color = color.black, var inverse_black = color.rgb(240,239,244)
 // gray
 var gray_color = #b2b5be
 
-indicator("Efficiency Ratio, 2024", shorttitle= "ER,2024", overlay=false, precision=PRECISION_LIMIT)
+indicator("Volatility, 2024", shorttitle= "VOLAT,2024", overlay=false, precision=PRECISION_LIMIT)
 // -----------------------------------------------------------------------------
 //                                  1 inputs                                    
 // -----------------------------------------------------------------------------
@@ -60,25 +60,42 @@ low_power_color = input.color(gray_color, title="Low", group=g1, inline='l1g1')
 is_auto_color = input.bool(true, title="auto color", group=g1, inline='l2g1')
 
 g2 = "Efficiency Ratio"
-er_method = input.string("KER", title="Method", group=g2, inline='l1g2', options=["KER","WSER","TRER2/3"])
-er_src = input.source(close,title="src", group=g2, inline='l1g2')
+vol_method = input.string("KER", title="Method", group=g2, inline='l1g2', options=["KER","WSER","TRER2/3","STDema"])
+vol_src = input.source(close,title="src", group=g2, inline='l1g2')
 
-er_length = input.int(14, title="length", group=g2, inline='l2g2')
-er_span = input.int(200, title="spans", group=g2, inline='l2g2')
-er_abs = input.bool(true, title="Use absolute value", group=g2, inline='l3g2')
+vol_length = input.int(14, title="length", group=g2, inline='l2g2')
+vol_span = input.int(200, title="spans", group=g2, inline='l2g2')
+vol_abs = input.bool(true, title="Use absolute value", group=g2, inline='l3g2')
 
 t_method = input.string("STATIC", title="Threshold Method", group=g2, inline='l4g2', options=["STATIC"])
-er_t1 = input.int(75, title="Thres(%) : High", group=g2, inline='l5g2')
-er_t2 = input.int(55, title="Mid", group=g2, inline='l5g2')
-er_t3 = input.int(25, title="Low", group=g2, inline='l5g2')
+vol_t1 = input.int(75, title="Thres(%) : High", group=g2, inline='l5g2')
+vol_t2 = input.int(55, title="Mid", group=g2, inline='l5g2')
+vol_t3 = input.int(25, title="Low", group=g2, inline='l5g2')
 
 // -----------------------------------------------------------------------------
 //                                 2 Functions                                  
 // -----------------------------------------------------------------------------
-// --------------------------- fetch data from tf ------------------------------
-// fetch data from selected tf
-// fetch_tf(_sym, _res, _src) => 
-//     request.security(_sym, _res, _src, lookahead = barmerge.lookahead_on)
+// ---------------------------- Auxilary Function ------------------------------
+//the same on pine
+isZero(val, eps) => math.abs(val) <= eps
+SUM(fst, snd) =>
+    res = fst + snd
+    if isZero(res, omit)
+        res := 0 // if update val less than omit value, treat it as zero
+    else
+        if not isZero(res, epsilon)
+            res := res // if update value is more than significant number, update it
+        else
+            1 // error, do nothing
+
+ema_stdev(src, length) =>
+    avg = ta.ema(src, length) // follow ema line
+    sumOfSquareDeviations = 0.0
+    for i = 0 to length - 1
+        sum = SUM(src[i], -avg)
+        sumOfSquareDeviations := sumOfSquareDeviations + (sum * sum)
+
+    stdev = math.sqrt(sumOfSquareDeviations / length)
 
 // ------------------------------- Auto Color ----------------------------------
 // [strong, weak, code]
@@ -117,22 +134,37 @@ TRER23(s,l,dir) =>
     TRL = na(high[l])? high-low[l] : math.max(math.max(high - low[l], math.abs(high - close[l])), math.abs(low - close[l]))
     // sign val : negative when high < low[n]
     nominator = dir ? TRL/l : math.sign(high - low[l]) * TRL/l // slope
-    // sign val : negative when high < low[n]
-    // nominator = dir ? math.abs(ta.mom(s,l))/l : ta.mom(s,l)/l // slope
     denominator = ta.rma(ta.tr,l) * 2/3
     nominator/denominator*100 // trer
 
+// --------------------------- Standard deviation ------------------------------
+STDema(s,l,span,dir) =>
+    sd = ema_stdev(s,l)
+    // sign val : negative when high < low[n]
+    nominator = dir ? sd : math.sign(high - low[l]) * sd // slope
+
+    ta.percentrank(nominator,span) // std_rank
+
+// --------------------------- Standard deviation ------------------------------
+// logSTD_rank(s,l,span,dir) =>
+//     lsd = ta.stdev(math.log(s),l)
+//     // sign val : negative when high < low[n]
+//     nominator = dir ? lsd : math.sign(high - low[l]) * lsd // slope
+
+//     ta.percentrank(nominator,span) // std_rank
+
 // ---------------------------- Validate Function ------------------------------
-STATIC_VALID_COLOR(val, t1, t2, t3) =>
-    mid_c = is_auto_color ? col : mid_power_color
-    high_c = is_auto_color ? inv_col : high_power_color
-    color = switch
-        not barstate.isconfirmed => color.orange
-        math.abs(val) > t3 and math.abs(val) < t2 => mid_c // mid range
-        math.abs(val) < t3 => low_power_color // low range
-        math.abs(val) > t2 and math.abs(val) < t1 => high_c // high range
+STATIC_VALIDATOR(val, t1, t2, t3) =>
+    mid_c = not barstate.isconfirmed ? color.orange : is_auto_color ? col : mid_power_color
+    high_c = not barstate.isconfirmed ? color.orange : is_auto_color ? inv_col : high_power_color
+    low_c = not barstate.isconfirmed ? color.orange : low_power_color
+    [color,msg] = switch
+        // not barstate.isconfirmed => color.orange
+        math.abs(val) > t3 and math.abs(val) < t2 => [mid_c,"Silver Bullet or End of Swing"] // mid range
+        math.abs(val) < t3 => [low_c,"Sideway or Weak Trend"] // low range
+        math.abs(val) > t2 and math.abs(val) < t1 => [high_c,"Silver Bullet or End of Swing"] // high range
         // Default Extreme case
-        => black_color
+        => [black_color,"Extreme"]
 
 
 
@@ -140,36 +172,37 @@ STATIC_VALID_COLOR(val, t1, t2, t3) =>
 //                                3 Calculation                                 
 // -----------------------------------------------------------------------------
 
-er = switch
-    er_method == "WSER" => WSER(er_src,er_length,er_abs)
-    er_method == "TRER2/3" => TRER23(er_src,er_length,er_abs)
+volat = switch
+    vol_method == "WSER" => WSER(vol_src,vol_length,vol_abs)
+    vol_method == "TRER2/3" => TRER23(vol_src,vol_length,vol_abs)
+    vol_method == "STDema" => STDema(vol_src,vol_length,vol_span,vol_abs)
+    // vol_method == "logSTDR" => logSTD_rank(vol_src,vol_length,vol_span,vol_abs)
+    
     // Default
-    => KER(er_src,er_length,er_abs)
+    => KER(vol_src,vol_length,vol_abs)
 
 // -----------------------------------------------------------------------------
 //                             4 Color Conditions                               
 // -----------------------------------------------------------------------------
-er_color = switch
-    // t_method == "PERCENTL" => PERCENTILE_VALID_COLOR(er, er_span, er_t1, er_t2, er_t3)
+[volat_color, volat_msg] = switch
+    // t_method == "PERCENTL" => PERCENTILE_VALID_COLOR(er, vol_span, vol_t1, vol_t2, vol_t3)
     // Default Extreme case
-    => STATIC_VALID_COLOR(er,er_t1,er_t2,er_t3)
+    => STATIC_VALIDATOR(volat,vol_t1,vol_t2,vol_t3)
 
 // -----------------------------------------------------------------------------
 //                                   5 plot                                     
 // -----------------------------------------------------------------------------
-// var a = 1.0
-
-// plot Efficiency
-plot(er, title="Efficiency Ratio",style=plot.style_columns ,color = er_color)
+// plot Volatility
+plot(volat, title="Efficiency Ratio",style=plot.style_columns ,color = volat_color)
 
 //plot else
 // -----------------------------------------------------------------------------
 //                              6 Debug Section                                 
 // -----------------------------------------------------------------------------
 // var label myLabel1 = na
-
+// low volatility
 // display status On the chart's last bar
 if not barstate.isconfirmed
-    label_msg = str.tostring(er_method)
-    myLabel1 = label.new(x=bar_index + 1, y=er, textcolor=inverse_black,color=black_color, style=label.style_label_left, size=size.normal, tooltip=label_msg)
+    label_msg = str.tostring(volat_msg)
+    myLabel1 = label.new(x=bar_index + 1, y=volat, textcolor=inverse_black,color=black_color, style=label.style_label_left, size=size.normal, tooltip=label_msg)
     label.set_text(id=myLabel1, text=label_msg)

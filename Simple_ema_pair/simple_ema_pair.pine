@@ -5,7 +5,8 @@
 //                                  Constant                                    
 // -----------------------------------------------------------------------------
 // period
-short_period = 25   
+// lock tf
+short_period = 20   
 medium_period = 50
 SHOW_LAST = 1000 // amount of indicators drawn
 sigma = 175 // interested range
@@ -33,7 +34,7 @@ trail_color = color.new(color.gray,50)
 squeeze_color = color.new(color.orange, 50)
 
 // @version=5
-indicator(shorttitle = "EMAp", title="Simple EMA pairs", overlay=true)
+indicator(shorttitle = "EMA Pair :", title="Simple EMA pairs", overlay=true)
 // -----------------------------------------------------------------------------
 //                                    input                                     
 // -----------------------------------------------------------------------------
@@ -42,15 +43,25 @@ src = input.source(close, title='Source Data')
 
 tip11 = ""
 
-g1="MACD config"
-show_ema = input.bool(true, title="show ema", group=g1)
-s_p = input.int(short_period, title="short ema period.", group=g1)
-m_p = input.int(medium_period, title="medium ema period.", tooltip=tip11, group=g1)
+g1="EMA pair config"
+show_ema = input.bool(true, title="show ema", group=g1, inline='g1l1')
+lock_ema = input.bool(true, title="lock ema", group=g1, inline='g1l1')
+lock_tf = input.timeframe('D', title="lock tf", options=['60','240','D','W'], group=g1, inline='g1l2')
+s_p = input.int(short_period, title="EMA period : Short", group=g1, inline='g1l3')
+m_p = input.int(medium_period, title="Medium", tooltip=tip11, group=g1, inline='g1l3')
 
 // -----------------------------------------------------------------------------
 //                                  Functions                                   
 // -----------------------------------------------------------------------------
 this_tf_second = timeframe.in_seconds(timeframe.period)
+
+lock_tf_color = switch
+    lock_tf == 'W' => color.aqua
+    lock_tf == 'D' => gold_color
+    lock_tf == '240' => purplr_color
+    lock_tf == '60' => green_color
+    => squeeze_color
+
 [c,d] = switch 
     this_tf_second <= _15m  => [red_color,1]
     (this_tf_second > _15m and this_tf_second <= _1h) => [green_color,2]
@@ -69,17 +80,20 @@ fetch_tf(_sym, _res, _src) =>
 
 
 // ----------------------------------- EMA -------------------------------------
-short_basis = ta.ema(src, s_p)
-mid_basis   = ta.ema(src, m_p)  
+short_basis = lock_ema ? fetch_tf(this_ticker, lock_tf, ta.ema(src,s_p)) : ta.ema(src, s_p)
+mid_basis   = lock_ema ? fetch_tf(this_ticker, lock_tf, ta.ema(src,m_p)) : ta.ema(src, m_p)  
+
 macd = short_basis - mid_basis
+// note : use epsilon instead of zero
 macd_bullish = macd > epsilon
-norm_macd = macd - epsilon
+macd_val = macd - epsilon
 
 // -----------------------------------------------------------------------------
 //                              Colors Condition                                
 // -----------------------------------------------------------------------------
 up_trend_color = color.new(BULLSIH_COLOR,50)
-dn_trend_color  = color.new(c,50)
+dn_color = lock_ema ? lock_tf_color : c
+dn_trend_color  = color.new(dn_color,50)
 
 // ------------------------------- MACD color ----------------------------------
 
@@ -90,10 +104,11 @@ fill_macd_color = macd_bullish ? up_trend_color : dn_trend_color
 //                                    Plot                                      
 // -----------------------------------------------------------------------------
 // ----------------------------------- EMA -------------------------------------
-plot_s_ema = plot(show_ema ? short_basis : na, 'Short ema', color=na, style=plot.style_line,linewidth=1,display=display.pane)
-plot_m_ema = plot(show_ema ? mid_basis : na, 'Medium ema', color=na,  style=plot.style_line,linewidth=1,display=display.pane)
-plot_macd =  plot(show_ema ? norm_macd : na, 'Normalized MACD', color=fill_macd_color, display=display.status_line)
-
+plot_s_ema = plot(show_ema ? short_basis : na, 'Short ema', color=na, style=plot.style_line,linewidth=1, display=display.pane)
+plot_m_ema = plot(show_ema ? mid_basis : na, 'Medium ema', color=na,  style=plot.style_line,linewidth=1, display=display.pane)
+// status line only
+plot_stat1 =  plot(show_ema ? s_p : na, 'Short Period', color=fill_macd_color, display=display.status_line)
+plot_stat2 =  plot(show_ema ? m_p : na, 'Medium Period', color=fill_macd_color, display=display.status_line)
 // -----------------------------------------------------------------------------
 //                                    Fill                                      
 // -----------------------------------------------------------------------------
